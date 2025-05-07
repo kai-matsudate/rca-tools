@@ -1,25 +1,22 @@
-require 'aws-sdk-s3'
-require 'tempfile'
 require 'date'
-require 'pathname'
-require_relative '../common/utils'
+require_relative '../common/base_fetcher'
 
 module LogTool
   module Waf
-    class Fetcher
-      def initialize(s3_client, config, options, logger)
-        @s3_client = s3_client
-        @config = config
-        @options = options
-        @logger = logger
-        @bucket = config['waf']['s3_bucket']
-        @prefix = config['waf']['s3_prefix']
+    # WAFログフェッチャー
+    class Fetcher < Common::BaseFetcher
+      # 設定の初期化
+      def setup_config
+        @service_config = {
+          'bucket' => @config['waf']['s3_bucket'],
+          'prefix' => @config['waf']['s3_prefix']
+        }
       end
 
-      # ログファイルの一覧を取得
+      # ファイルリストの取得をオーバーライド（WAFの処理が他と大きく異なるため）
       def list_files
-        # ローカルファイルが指定されている場合
-        if @options[:file]
+        # 単一ファイルモードの処理
+        if single_file_mode?
           if File.exist?(@options[:file])
             return [@options[:file]]
           else
@@ -28,9 +25,20 @@ module LogTool
           end
         end
 
-        # 日付/日時範囲の設定
-        start_datetime = parse_datetime(@options[:start])
-        end_datetime = parse_datetime(@options[:end])
+        # 日付/日時範囲モードの処理
+        if date_range_mode?
+          handle_waf_date_range
+        else
+          @logger.error("ファイルまたは期間が指定されていません")
+          []
+        end
+      end
+
+      # WAF固有の日付範囲処理
+      def handle_waf_date_range
+        # 日付プレフィックスと日時情報を取得
+        start_datetime = Common::Utils.parse_datetime(@options[:start])
+        end_datetime = Common::Utils.parse_datetime(@options[:end])
 
         # 時刻情報が含まれているかチェック
         has_time = Common::Utils.has_time_component?(@options[:start]) || Common::Utils.has_time_component?(@options[:end])
@@ -41,11 +49,14 @@ module LogTool
         files = []
         (start_datetime.to_date..end_datetime.to_date).each do |date|
           prefix = date_prefix(date)
-          @logger.debug("S3バケット #{@bucket} のプレフィックス #{prefix} を検索")
+          @logger.debug("S3バケット #{@service_config['bucket']} のプレフィックス #{prefix} を検索")
 
           begin
             # S3オブジェクトリスト取得
-            objects = @s3_client.list_objects_v2(bucket: @bucket, prefix: prefix).contents || []
+            objects = @s3_client.list_objects_v2(
+              bucket: @service_config['bucket'],
+              prefix: prefix
+            ).contents || []
 
             # 時刻情報がある場合はフィルタリング
             if has_time
@@ -56,7 +67,7 @@ module LogTool
               files << { key: object.key, size: object.size }
             end
           rescue Aws::S3::Errors::NoSuchBucket
-            @logger.error("S3バケット #{@bucket} が見つかりません")
+            @logger.error("S3バケット #{@service_config['bucket']} が見つかりません")
             break
           end
         end
@@ -65,49 +76,33 @@ module LogTool
         files
       end
 
-      # ログファイルをダウンロードして内容を返す
+      # ダウンロードメソッドのオーバーライド
       def download(files)
         contents = []
 
         files.each do |file|
-          if file.is_a?(Hash) && file[:key]
-            # S3オブジェクトの場合
-            @logger.info("S3からファイル #{file[:key]} をダウンロード中...")
-
-            begin
-              resp = @s3_client.get_object(bucket: @bucket, key: file[:key])
+          begin
+            if file.is_a?(String)
+              # ローカルファイルの場合（文字列として渡される）
+              @logger.info("ローカルファイル #{file} を読み込み中...")
+              content = File.read(file)
+              @logger.info("読み込み成功: #{file} (#{content.bytesize} bytes)")
+              contents << content
+            elsif file.is_a?(Hash) && file[:key]
+              # S3オブジェクトの場合
+              @logger.info("S3からファイル #{file[:key]} をダウンロード中...")
+              resp = @s3_client.get_object(bucket: @service_config['bucket'], key: file[:key])
               content = resp.body.read
-              contents << content
               @logger.info("ダウンロード成功: #{file[:key]} (#{content.bytesize} bytes)")
-            rescue => e
-              @logger.error("ダウンロード失敗: #{file[:key]} - #{e.message}")
-            end
-          else
-            # ローカルファイルの場合
-            local_path = file.is_a?(String) ? file : file[:key]
-            @logger.info("ローカルファイル #{local_path} を読み込み中...")
-
-            begin
-              content = File.read(local_path)
               contents << content
-              @logger.info("読み込み成功: #{local_path} (#{content.bytesize} bytes)")
-            rescue => e
-              @logger.error("読み込み失敗: #{local_path} - #{e.message}")
             end
+          rescue => e
+            @logger.error("ファイル取得に失敗しました: #{e.message}")
+            @logger.debug(e.backtrace.join("\n"))
           end
         end
 
         contents.join("\n")
-      end
-
-      private
-
-      # 日時文字列をパース
-      def parse_datetime(datetime_str)
-        return DateTime.now.new_offset(0) unless datetime_str
-
-        # Common::Utilsのparse_datetimeメソッドを使用
-        Common::Utils.parse_datetime(datetime_str)
       end
 
       # S3オブジェクトを時刻でフィルタリング
@@ -163,10 +158,12 @@ module LogTool
         filtered_objects
       end
 
+      private
+
       # 日付からS3プレフィックスを生成
       def date_prefix(date)
         formatted_date = date.strftime('%Y/%m/%d')
-        "#{@prefix}#{formatted_date}/"
+        "#{@service_config['prefix']}#{formatted_date}/"
       end
     end
   end
