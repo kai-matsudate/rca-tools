@@ -13,6 +13,9 @@ gem 'logger'
 # 環境変数管理
 gem 'dotenv', '~> 2.7'
 
+# XML処理（AWS SDKが必要）
+gem 'nokogiri'
+
 # 圧縮／CSV 処理
 # （標準ライブラリで足りるため省略可）
 

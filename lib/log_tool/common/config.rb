@@ -19,6 +19,10 @@ module LogTool
           'cf' => {
             'bucket' => ENV['CF_BUCKET'],
             'prefix' => ENV['CF_PREFIX']
+          },
+          'waf' => {
+            's3_bucket' => ENV['WAF_S3_BUCKET'],
+            's3_prefix' => ENV['WAF_S3_PREFIX']
           }
         }
       end

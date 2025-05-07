@@ -4,9 +4,10 @@ require 'yaml'
 module LogTool
   module Common
     class AwsClient
-      def initialize(profile: nil, region:)
-        credentials = profile ? Aws::SharedCredentials.new(profile_name: profile) : nil
-        @s3 = Aws::S3::Client.new(region: region, credentials: credentials)
+      def initialize(region:)
+        # デフォルトのクレデンシャルプロバイダーチェーンを使用する
+        # 環境変数(AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)が優先的に使われる
+        @s3 = Aws::S3::Client.new(region: region)
       end
 
       def s3_client

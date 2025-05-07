@@ -15,7 +15,6 @@ module LogTool
       option :end,    type: :string,  desc: '終了日 (YYYY-MM-DD)'
       option :output, type: :string,  default: 'cf_logs.csv', desc: '出力CSVファイル名'
       option :region, type: :string,  desc: 'AWS リージョン (省略時は .env から)'
-      option :profile, type: :string, desc: 'AWS プロファイル名 (省略時はデフォルト)'
 
       def fetch
         logger = Common::AppLogger.build
@@ -27,7 +26,6 @@ module LogTool
           # AWSクライアント初期化
           region = options[:region] || config['default']['region']
           client = Common::AwsClient.new(
-            profile: options[:profile],
             region: region
           ).s3_client
 

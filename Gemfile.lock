@@ -27,6 +27,9 @@ GEM
     dotenv (2.8.1)
     jmespath (1.6.2)
     logger (1.7.0)
+    nokogiri (1.18.8-arm64-darwin)
+      racc (~> 1.4)
+    racc (1.8.1)
     rspec (3.13.0)
       rspec-core (~> 3.13.0)
       rspec-expectations (~> 3.13.0)
@@ -44,13 +47,13 @@ GEM
 
 PLATFORMS
   arm64-darwin-23
-  ruby
 
 DEPENDENCIES
   aws-sdk-cloudfront (~> 1.57)
   aws-sdk-s3 (~> 1.90)
   dotenv (~> 2.7)
   logger
+  nokogiri
   rspec (~> 3.10)
   thor (~> 1.2)
 
