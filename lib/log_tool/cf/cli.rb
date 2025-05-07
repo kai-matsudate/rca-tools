@@ -1,8 +1,8 @@
 require 'thor'
-require 'yaml'
 require_relative '../common/aws_client'
 require_relative '../common/logger'
 require_relative '../common/utils'
+require_relative '../common/config'
 require_relative 'fetcher'
 require_relative 'parser'
 
@@ -14,7 +14,7 @@ module LogTool
       option :start,  type: :string,  desc: '開始日 (YYYY-MM-DD)'
       option :end,    type: :string,  desc: '終了日 (YYYY-MM-DD)'
       option :output, type: :string,  default: 'cf_logs.csv', desc: '出力CSVファイル名'
-      option :region, type: :string,  desc: 'AWS リージョン (省略時は config.yml から)'
+      option :region, type: :string,  desc: 'AWS リージョン (省略時は .env から)'
       option :profile, type: :string, desc: 'AWS プロファイル名 (省略時はデフォルト)'
 
       def fetch
@@ -63,11 +63,7 @@ module LogTool
       private
 
       def load_config
-        config_path = File.join(File.dirname(__FILE__), '../../../config/config.yml')
-        unless File.exist?(config_path)
-          raise "設定ファイルが見つかりません: #{config_path}"
-        end
-        YAML.load_file(config_path)
+        Common::Config.load
       end
 
       def ensure_output_dir(dir)

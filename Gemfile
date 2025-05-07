@@ -10,10 +10,12 @@ gem 'thor', '~> 1.2'
 # ロギング
 gem 'logger'
 
+# 環境変数管理
+gem 'dotenv', '~> 2.7'
+
 # 圧縮／CSV 処理
 # （標準ライブラリで足りるため省略可）
 
 group :development, :test do
   gem 'rspec', '~> 3.10'             # テストフレームワーク
-  gem 'dotenv', '~> 2.7'             # 環境変数管理（任意）
 end
