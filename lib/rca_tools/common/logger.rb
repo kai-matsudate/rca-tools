@@ -1,7 +1,7 @@
 require 'logger'
 require 'time'
 
-module LogTool
+module RcaTools
   module Common
     class AppLogger
       def self.build

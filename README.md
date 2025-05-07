@@ -1,9 +1,9 @@
-# LogTool
+# RcaTools
 
 ## インストール
 
 ```bash
-git clone https://github.com/kai-matsudate/log_tool.git && cd log_tool
+git clone https://github.com/kai-matsudate/rca_tools.git && cd rca_tools
 bundle install
 ```
 

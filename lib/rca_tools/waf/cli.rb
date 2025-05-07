@@ -8,7 +8,7 @@ require_relative '../common/config'
 require_relative 'fetcher'
 require_relative 'parser'
 
-module LogTool
+module RcaTools
   module Waf
     class CLI < Thor
       default_task :fetch

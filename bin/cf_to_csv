@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
 # CloudFrontログ取得・変換コマンド
-require_relative '../lib/log_tool/cf/cli'
+require_relative '../lib/rca_tools/cf/cli'
 
-LogTool::Cf::CLI.start(ARGV)
+RcaTools::Cf::CLI.start(ARGV)

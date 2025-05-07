@@ -1,6 +1,6 @@
 require 'dotenv'
 
-module LogTool
+module RcaTools
   module Common
     class Config
       def self.load

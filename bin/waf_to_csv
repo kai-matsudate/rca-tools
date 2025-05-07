@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
 require 'bundler/setup'
-require_relative '../lib/log_tool/waf/cli'
+require_relative '../lib/rca_tools/waf/cli'
 
-LogTool::Waf::CLI.start(ARGV)
+RcaTools::Waf::CLI.start(ARGV)

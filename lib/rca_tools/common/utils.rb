@@ -3,7 +3,7 @@ require 'fileutils'
 require 'tempfile'
 require 'zlib'
 
-module LogTool
+module RcaTools
   module Common
     # ユーティリティメソッドを提供するクラス
     #

@@ -1,7 +1,7 @@
 require 'uri'
 require_relative 'utils'
 
-module LogTool
+module RcaTools
   module Common
     # ログフェッチャーの基本クラス
     # 各サービス固有のフェッチャーはこのクラスを継承する

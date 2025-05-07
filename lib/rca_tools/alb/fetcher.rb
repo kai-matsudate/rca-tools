@@ -1,6 +1,6 @@
 require_relative '../common/base_fetcher'
 
-module LogTool
+module RcaTools
   module Alb
     # ALBログフェッチャー
     class Fetcher < Common::BaseFetcher

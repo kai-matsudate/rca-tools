@@ -1,7 +1,7 @@
 require 'aws-sdk-s3'
 require 'yaml'
 
-module LogTool
+module RcaTools
   module Common
     class AwsClient
       def initialize(region:)

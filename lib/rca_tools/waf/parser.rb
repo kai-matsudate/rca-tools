@@ -2,7 +2,7 @@ require 'csv'
 require 'fileutils'
 require 'json'
 
-module LogTool
+module RcaTools
   module Waf
     class Parser
       # WAFログのヘッダー定義

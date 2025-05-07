@@ -1,7 +1,7 @@
 require 'csv'
 require 'fileutils'
 
-module LogTool
+module RcaTools
   module Cf
     class Parser
       # CloudFrontログのヘッダー定義

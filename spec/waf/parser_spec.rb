@@ -1,12 +1,12 @@
 require 'spec_helper'
-require_relative '../../lib/log_tool/waf/parser'
-require_relative '../../lib/log_tool/common/logger'
+require_relative '../../lib/rca_tools/waf/parser'
+require_relative '../../lib/rca_tools/common/logger'
 require 'fileutils'
 require 'csv'
 require 'json'
 
-RSpec.describe LogTool::Waf::Parser do
-  let(:logger) { LogTool::Common::AppLogger.build }
+RSpec.describe RcaTools::Waf::Parser do
+  let(:logger) { RcaTools::Common::AppLogger.build }
   let(:sample_log_path) { File.join(File.dirname(__FILE__), '../fixtures/sample_waf_log.txt') }
   let(:output_path) { File.join(File.dirname(__FILE__), '../tmp/waf_output.csv') }
 

@@ -8,15 +8,15 @@ require_relative '../common/config'
 require_relative 'fetcher'
 require_relative 'parser'
 
-module LogTool
-  module Cf
+module RcaTools
+  module Alb
     class CLI < Thor
       default_task :fetch
-      desc 'fetch', 'CloudFrontログを取得してCSVに変換'
+      desc 'fetch', 'ALBログを取得してCSVに変換'
       option :file,   type: :string,  desc: 'S3 または ローカルログファイル'
       option :start,  type: :string,  desc: '開始日時 (YYYY-MM-DD または YYYY-MM-DDThh:mm:ss [UTC])'
       option :end,    type: :string,  desc: '終了日時 (YYYY-MM-DD または YYYY-MM-DDThh:mm:ss [UTC])'
-      option :output, type: :string,  default: 'cf_logs.csv', desc: '出力CSVファイル名'
+      option :output, type: :string,  default: 'alb_logs.csv', desc: '出力CSVファイル名'
       option :region, type: :string,  desc: 'AWS リージョン (省略時は .env から)'
 
       def fetch
@@ -51,7 +51,7 @@ module LogTool
 
           # 出力ファイル名の決定
           output_filename =
-            if options[:output] == 'cf_logs.csv' # デフォルト値のまま
+            if options[:output] == 'alb_logs.csv' # デフォルト値のまま
               generate_default_filename
             else
               options[:output]
@@ -89,7 +89,7 @@ module LogTool
         identifier = "#{timestamp}_#{random_suffix}"
         # 識別子をBase64エンコード
         encoded = Base64.urlsafe_encode64(identifier, padding: false)
-        "cf_#{encoded}.csv"
+        "alb_#{encoded}.csv"
       end
     end
   end

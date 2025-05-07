@@ -1,7 +1,7 @@
 require 'date'
 require_relative '../common/base_fetcher'
 
-module LogTool
+module RcaTools
   module Waf
     # WAFログフェッチャー
     class Fetcher < Common::BaseFetcher

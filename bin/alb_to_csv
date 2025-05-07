@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
 # ALBログ取得・変換コマンド
-require_relative '../lib/log_tool/alb/cli'
+require_relative '../lib/rca_tools/alb/cli'
 
-LogTool::Alb::CLI.start(ARGV)
+RcaTools::Alb::CLI.start(ARGV)

@@ -1,7 +1,7 @@
 require 'csv'
 require 'fileutils'
 
-module LogTool
+module RcaTools
   module Alb
     class Parser
       # ALBログのヘッダー定義
