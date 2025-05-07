@@ -1,5 +1,18 @@
 # RcaTools
 
+## 概要
+
+RcaToolsは、AWS環境でのRoot Cause Analysis（原因分析）を支援するためのログ収集・変換ツールです。ALB、CloudFront、WAFの各種ログをS3から効率的に取得し、分析しやすいCSV形式に変換します。
+
+### 主な機能
+
+- **複数のAWSサービスに対応**: ALB、CloudFront、WAFのログをサポート
+- **柔軟なログ取得**: S3バケットからの一括取得、単一ファイル指定、ローカルファイル処理
+- **日時範囲指定**: 特定の期間のログのみを抽出可能
+- **CSV変換**: 複雑なログ形式を分析しやすいCSV形式に変換
+
+障害対応やパフォーマンス分析、セキュリティインシデント調査など、様々なシナリオでの原因究明をサポートします。
+
 ## インストール
 
 ```bash
@@ -14,20 +27,14 @@ bundle install
 ```bash
 bin/alb_to_csv --file s3://bucket/path/log.gz --output alb.csv
 
-# 日付範囲指定（従来通り）
-bin/alb_to_csv --start 2025-05-01 --end 2025-05-07 --output alb.csv
-
-# 日時範囲指定（新機能）- UTC時間
+# 日時範囲指定 - UTC時間
 bin/alb_to_csv --start 2025-05-01T12:00:00 --end 2025-05-07T18:30:00 --output alb.csv
 ```
 
 ### CloudFront ログ取得
 
 ```bash
-# 日付範囲指定
-bin/cf_to_csv --start 2025-05-01 --end 2025-05-07 --output cf.csv
-
-# 日時範囲指定（新機能）- UTC時間
+# 日時範囲指定 - UTC時間
 bin/cf_to_csv --start 2025-05-01T12:00:00 --end 2025-05-07T18:30:00 --output cf.csv
 
 # 単一ファイル指定（S3）
@@ -40,10 +47,7 @@ bin/cf_to_csv --file /path/to/local/cf-log.gz --output cf.csv
 ### WAF ログ取得
 
 ```bash
-# 日付範囲指定
-bin/waf_to_csv --start 2025-05-01 --end 2025-05-07 --output waf.csv
-
-# 日時範囲指定（新機能）- UTC時間
+# 日時範囲指定 - UTC時間
 bin/waf_to_csv --start 2025-05-01T12:00:00 --end 2025-05-07T18:30:00 --output waf.csv
 
 # 単一ファイル指定（S3）
