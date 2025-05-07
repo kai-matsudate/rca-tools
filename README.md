@@ -19,7 +19,14 @@ bin/alb_to_csv fetch --start 2025-05-01 --end 2025-05-07 --output alb.csv
 ### CloudFront ログ取得
 
 ```bash
+# 日付範囲指定
 bin/cf_to_csv fetch --start 2025-05-01 --end 2025-05-07 --output cf.csv
+
+# 単一ファイル指定（S3）
+bin/cf_to_csv fetch --file s3://my-cf-logs-bucket/path/to/log.gz --output cf.csv
+
+# ローカルファイル指定
+bin/cf_to_csv fetch --file /path/to/local/cf-log.gz --output cf.csv
 ```
 
 ## 設定
