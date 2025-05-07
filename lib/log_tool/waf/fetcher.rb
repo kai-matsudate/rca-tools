@@ -2,6 +2,7 @@ require 'aws-sdk-s3'
 require 'tempfile'
 require 'date'
 require 'pathname'
+require_relative '../common/utils'
 
 module LogTool
   module Waf
@@ -27,21 +28,31 @@ module LogTool
           end
         end
 
-        # 日付範囲の設定
-        start_date = @options[:start] ? Date.parse(@options[:start]) : Date.today - 1
-        end_date = @options[:end] ? Date.parse(@options[:end]) : Date.today
+        # 日付/日時範囲の設定
+        start_datetime = parse_datetime(@options[:start])
+        end_datetime = parse_datetime(@options[:end])
 
-        @logger.info("期間 #{start_date} 〜 #{end_date} のログを検索")
+        # 時刻情報が含まれているかチェック
+        has_time = Common::Utils.has_time_component?(@options[:start]) || Common::Utils.has_time_component?(@options[:end])
+
+        @logger.info("期間 #{start_datetime} 〜 #{end_datetime} のログを検索")
 
         # S3バケットからのログファイル一覧取得
         files = []
-        (start_date..end_date).each do |date|
+        (start_datetime.to_date..end_datetime.to_date).each do |date|
           prefix = date_prefix(date)
           @logger.debug("S3バケット #{@bucket} のプレフィックス #{prefix} を検索")
 
           begin
             # S3オブジェクトリスト取得
-            @s3_client.list_objects_v2(bucket: @bucket, prefix: prefix).contents.each do |object|
+            objects = @s3_client.list_objects_v2(bucket: @bucket, prefix: prefix).contents || []
+
+            # 時刻情報がある場合はフィルタリング
+            if has_time
+              objects = filter_objects_by_time(objects, start_datetime, end_datetime)
+            end
+
+            objects.each do |object|
               files << { key: object.key, size: object.size }
             end
           rescue Aws::S3::Errors::NoSuchBucket
@@ -90,6 +101,67 @@ module LogTool
       end
 
       private
+
+      # 日時文字列をパース
+      def parse_datetime(datetime_str)
+        return DateTime.now.new_offset(0) unless datetime_str
+
+        # Common::Utilsのparse_datetimeメソッドを使用
+        Common::Utils.parse_datetime(datetime_str)
+      end
+
+      # S3オブジェクトを時刻でフィルタリング
+      def filter_objects_by_time(objects, start_datetime, end_datetime)
+        filtered_objects = []
+
+        objects.each do |obj|
+          # WAFログの場合、パスとファイル名からタイムスタンプを抽出
+          # 例: AWSLogs/148189048278/WAFLogs/cloudfront/driver-wafacl-prd/2025/05/07/03/50/148189048278_waflogs_cloudfront_driver-wafacl-prd_20250507T0350Z_0a7915da.log.gz
+
+          # パスから年/月/日/時/分を抽出
+          path_match = obj.key.match(/(\d{4})\/(\d{2})\/(\d{2})\/(\d{2})\/(\d{2})/)
+
+          # ファイル名からタイムスタンプを抽出 (YYYYMMDDTHHMMZ形式)
+          timestamp_match = obj.key.match(/(\d{8})T(\d{2})(\d{2})Z/)
+
+          if path_match
+            year, month, day, hour, minute = path_match.captures.map(&:to_i)
+            second = 0
+            # UTCとしてDateTimeを作成
+            obj_time = DateTime.new(year, month, day, hour, minute, second, 0)
+
+            @logger.debug("ファイル #{obj.key} の時刻: #{obj_time}")
+
+            # 時刻範囲内かチェック
+            if obj_time >= start_datetime && obj_time <= end_datetime
+              filtered_objects << obj
+            end
+          elsif timestamp_match
+            # パスからの抽出が失敗した場合はファイル名のタイムスタンプを使用
+            year = timestamp_match[1][0..3].to_i
+            month = timestamp_match[1][4..5].to_i
+            day = timestamp_match[1][6..7].to_i
+            hour = timestamp_match[2].to_i
+            minute = timestamp_match[3].to_i
+            second = 0
+
+            obj_time = DateTime.new(year, month, day, hour, minute, second, 0)
+
+            @logger.debug("ファイル名から抽出した時刻: #{obj_time}")
+
+            if obj_time >= start_datetime && obj_time <= end_datetime
+              filtered_objects << obj
+            end
+          else
+            # 時刻が抽出できない場合はlast_modifiedを使用
+            if obj.last_modified >= start_datetime && obj.last_modified <= end_datetime
+              filtered_objects << obj
+            end
+          end
+        end
+
+        filtered_objects
+      end
 
       # 日付からS3プレフィックスを生成
       def date_prefix(date)

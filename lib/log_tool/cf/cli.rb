@@ -9,10 +9,11 @@ require_relative 'parser'
 module LogTool
   module Cf
     class CLI < Thor
+      default_task :fetch
       desc 'fetch', 'CloudFrontログを取得してCSVに変換'
       option :file,   type: :string,  desc: 'S3 または ローカルログファイル'
-      option :start,  type: :string,  desc: '開始日 (YYYY-MM-DD)'
-      option :end,    type: :string,  desc: '終了日 (YYYY-MM-DD)'
+      option :start,  type: :string,  desc: '開始日時 (YYYY-MM-DD または YYYY-MM-DDThh:mm:ss [UTC])'
+      option :end,    type: :string,  desc: '終了日時 (YYYY-MM-DD または YYYY-MM-DDThh:mm:ss [UTC])'
       option :output, type: :string,  default: 'cf_logs.csv', desc: '出力CSVファイル名'
       option :region, type: :string,  desc: 'AWS リージョン (省略時は .env から)'
 

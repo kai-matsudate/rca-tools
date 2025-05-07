@@ -36,13 +36,17 @@ module LogTool
             }]
           end
         elsif @options[:start] && @options[:end]
-          # 日付範囲指定モード
+          # 日付/日時範囲指定モード
           @logger.info("期間指定でログを取得します: #{@options[:start]} から #{@options[:end]}")
+
+          # 日付プレフィックスと日時情報を取得
+          date_prefixes, start_datetime, end_datetime = Common::Utils.date_prefixes(@options[:start], @options[:end])
+
+          # 時刻情報が含まれているかチェック
+          has_time = Common::Utils.has_time_component?(@options[:start]) || Common::Utils.has_time_component?(@options[:end])
 
           # CloudFrontログは YYYY-MM-DD-[順序番号] 形式のファイル名を持つ
           # プレフィックスで日付部分だけを指定して検索
-          date_prefixes = Common::Utils.date_prefixes(@options[:start], @options[:end])
-
           all_objects = []
           date_prefixes.each do |date_prefix|
             # CloudFrontのログファイルはYYYY-MM-DD-xx.gz形式
@@ -59,6 +63,12 @@ module LogTool
             end
           end
 
+          # 時刻情報が含まれている場合、時刻でフィルタリング
+          if has_time
+            @logger.info("日時範囲でフィルタリングします: #{start_datetime} から #{end_datetime}")
+            all_objects = filter_objects_by_time(all_objects, start_datetime, end_datetime)
+          end
+
           @logger.info("#{all_objects.size}件のファイルが見つかりました")
 
           all_objects.map do |obj|
@@ -72,6 +82,42 @@ module LogTool
           @logger.error("ファイルまたは期間が指定されていません")
           []
         end
+      end
+
+      # S3オブジェクトを時刻でフィルタリング
+      def filter_objects_by_time(objects, start_datetime, end_datetime)
+        filtered_objects = []
+
+        objects.each do |obj|
+          # CloudFrontログの場合、キー名から時刻を抽出
+          # 例: AWSLogs/148189048278/cflogs/driver-open-prd/E126FWE9F8MOZF.2022-09-28-12.2a16302d.gz
+
+          # 正規表現を修正してドメイン名.YYYY-MM-DD-HH.xxxxx.gzの形式に対応する
+          match = obj.key.match(/\.(\d{4})-(\d{2})-(\d{2})-(\d{2})\./)
+
+          if match
+            year, month, day, hour = match.captures.map(&:to_i)
+            # 時、分、秒が指定されていない場合は、デフォルト値を設定
+            minute = 0
+            second = 0
+            # UTCとしてDateTimeを作成
+            obj_time = DateTime.new(year, month, day, hour, minute, second, 0)
+
+            @logger.debug("ファイル #{obj.key} の時刻: #{obj_time}")
+
+            # 時刻範囲内かチェック
+            if obj_time >= start_datetime && obj_time <= end_datetime
+              filtered_objects << obj
+            end
+          else
+            # 時刻が抽出できない場合はlast_modifiedを使用
+            if obj.last_modified >= start_datetime && obj.last_modified <= end_datetime
+              filtered_objects << obj
+            end
+          end
+        end
+
+        filtered_objects
       end
 
       # ファイルのダウンロードとコンテンツ取得

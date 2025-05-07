@@ -6,15 +6,44 @@ require 'zlib'
 module LogTool
   module Common
     class Utils
-      # S3オブジェクトを日付範囲でフィルタリングするためのプレフィックスリストを生成
-      def self.date_prefixes(start_date, end_date, format = '%Y-%m-%d')
-        start_date = Date.parse(start_date) if start_date.is_a?(String)
-        end_date = Date.parse(end_date) if end_date.is_a?(String)
+  # S3オブジェクトを日付範囲でフィルタリングするためのプレフィックスリストを生成
+  def self.date_prefixes(start_date, end_date, format = '%Y/%m/%d')
+    start_datetime = parse_datetime(start_date)
+    end_datetime = parse_datetime(end_date)
 
-        (start_date..end_date).map do |date|
-          date.strftime(format)
-        end
-      end
+    # 日付部分でのプレフィックス生成
+    date_range = (start_datetime.to_date..end_datetime.to_date).map do |date|
+      date.strftime(format)
+    end
+
+    # 返り値は [プレフィックスリスト, 開始日時, 終了日時] の形式
+    [date_range, start_datetime, end_datetime]
+  end
+
+  # 日付または日時文字列をパースするヘルパーメソッド
+  def self.parse_datetime(datetime_str)
+    if datetime_str.is_a?(String) && (datetime_str.include?('T') || datetime_str.include?(' '))
+      # ISO8601形式（YYYY-MM-DDThh:mm:ss）または YYYY-MM-DD hh:mm:ss 形式
+      # UTCとして扱う
+      DateTime.parse(datetime_str).new_offset(0)
+    elsif datetime_str.is_a?(String)
+      # YYYY-MM-DD 形式
+      # 日付のみの場合は、その日の始まり（00:00:00 UTC）として扱う
+      date = Date.parse(datetime_str)
+      DateTime.new(date.year, date.month, date.day, 0, 0, 0, 0)
+    elsif datetime_str.is_a?(Date) && !datetime_str.is_a?(DateTime)
+      # DateオブジェクトをDateTimeに変換
+      DateTime.new(datetime_str.year, datetime_str.month, datetime_str.day, 0, 0, 0, 0)
+    else
+      # すでにDateTimeオブジェクトかその他の場合はそのまま返す
+      datetime_str
+    end
+  end
+
+  # 文字列に時刻情報が含まれているかをチェック
+  def self.has_time_component?(datetime_str)
+    datetime_str.is_a?(String) && (datetime_str.include?('T') || datetime_str.include?(' '))
+  end
 
       # S3オブジェクトリストを取得
       def self.list_s3_objects(s3_client, bucket, prefix, date_prefixes = nil)
