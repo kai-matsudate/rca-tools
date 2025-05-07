@@ -88,23 +88,41 @@ module LogTool
       # @param bucket [String] バケット名
       # @param key [String] オブジェクトキー
       # @param decompress [Boolean] gzipファイルを解凍するかどうか
+      # @param logger [Logger] ロガーオブジェクト
       # @return [String] ダウンロードしたオブジェクトの内容
-      def self.download_s3_object(s3_client, bucket, key, decompress: true)
+      def self.download_s3_object(s3_client, bucket, key, decompress: true, logger: nil)
         temp_file = Tempfile.new('s3_object')
         begin
-          s3_client.get_object(
+          # S3からオブジェクトをダウンロード
+          logger&.info("S3オブジェクトのダウンロード開始: #{bucket}/#{key}")
+          response = s3_client.get_object(
             bucket: bucket,
             key: key,
             response_target: temp_file.path
           )
 
+          # ファイルの内容を取得
           if decompress && key.end_with?('.gz')
-            content = ''
-            Zlib::GzipReader.open(temp_file.path) do |gz|
-              content = gz.read
+            # 外部コマンドを使用してgzipファイルを解凍
+            content = decompress_with_external_command(temp_file.path, logger)
+
+            if content.nil? || content.empty?
+              # 最後の手段としてRubyのZlib解凍を試みる
+              logger&.info("代替手段としてRubyのZlib解凍を試みます")
+              begin
+                content = ''
+                Zlib::GzipReader.open(temp_file.path) do |gz|
+                  content = gz.read
+                end
+              rescue => e
+                logger&.error("Zlib解凍エラー: #{e.message}")
+                content = nil
+              end
             end
+
             content
           else
+            # 非圧縮ファイルの読み込み
             File.read(temp_file.path)
           end
         ensure
@@ -113,20 +131,91 @@ module LogTool
         end
       end
 
+      # 外部コマンドを使用してGZIPファイルを解凍
+      # @param gz_file_path [String] GZIPファイルのパス
+      # @param logger [Logger] ロガーオブジェクト
+      # @return [String, nil] 解凍したコンテンツ、または失敗した場合はnil
+      def self.decompress_with_external_command(gz_file_path, logger)
+        begin
+          output_path = gz_file_path + '.decoded'
+
+          # まずgunzipコマンドを試す
+          command = "gunzip -c '#{gz_file_path}' > '#{output_path}'"
+          result = system(command)
+
+          if result && File.exist?(output_path) && File.size(output_path) > 0
+            # 成功した場合はファイルを読み込む
+            content = File.read(output_path)
+          else
+            # gunzipが失敗した場合は、macOSのditto -k コマンドを試す (macOSのみ)
+            ditto_temp_dir = File.join(Dir.pwd, 'output', 'ditto_temp')
+            FileUtils.mkdir_p(ditto_temp_dir)
+
+            # dittoコマンドは解凍先にディレクトリが必要
+            ditto_command = "ditto -k --sequesterRsrc '#{gz_file_path}' '#{ditto_temp_dir}'"
+            ditto_result = system(ditto_command)
+
+            if ditto_result
+              # 解凍されたファイルを探す (拡張子なしのファイル名になる)
+              base_name = File.basename(gz_file_path, '.gz')
+              extracted_file = File.join(ditto_temp_dir, base_name)
+
+              if File.exist?(extracted_file)
+                content = File.read(extracted_file)
+
+                # 結果を同じ出力パスにコピー
+                File.write(output_path, content)
+              else
+                return nil
+              end
+            else
+              return nil
+            end
+          end
+
+          # 解凍結果を返す前に一時ファイルの削除
+          begin
+            File.unlink(output_path) if File.exist?(output_path)
+            FileUtils.rm_rf(File.join(Dir.pwd, 'output', 'ditto_temp')) if Dir.exist?(File.join(Dir.pwd, 'output', 'ditto_temp'))
+          rescue => e
+            # 一時ファイル削除中のエラーは無視
+          end
+
+          content
+        rescue => e
+          logger&.error("外部コマンドでの解凍エラー: #{e.message}")
+          nil
+        end
+      end
+
       # ファイル操作関連のメソッド
 
       # ローカルファイルからコンテンツを読み込む
       # @param file_path [String] ファイルパス
       # @param decompress [Boolean] gzipファイルを解凍するかどうか
+      # @param logger [Logger] ロガーオブジェクト (オプション)
       # @return [String] ファイルの内容
-      def self.read_local_file(file_path, decompress: true)
+      def self.read_local_file(file_path, decompress: true, logger: nil)
         if decompress && file_path.end_with?('.gz')
-          content = ''
-          Zlib::GzipReader.open(file_path) do |gz|
-            content = gz.read
+          # 外部コマンドでの解凍を優先
+          content = decompress_with_external_command(file_path, logger)
+
+          # 外部コマンドが失敗した場合のみ、Zlibを試用
+          if content.nil? || content.empty?
+            begin
+              content = ''
+              Zlib::GzipReader.open(file_path) do |gz|
+                content = gz.read
+              end
+            rescue => e
+              logger&.error("Zlib解凍エラー: #{e.message}")
+              raise
+            end
           end
+
           content
         else
+          # 非圧縮ファイルの読み込み
           File.read(file_path)
         end
       end

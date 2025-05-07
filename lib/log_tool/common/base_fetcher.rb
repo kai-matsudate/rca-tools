@@ -134,13 +134,14 @@ module LogTool
       def download_file(file)
         if file[:local]
           @logger.info("ローカルファイルを読み込みます: #{file[:path]}")
-          Utils.read_local_file(file[:path])
+          Utils.read_local_file(file[:path], logger: @logger)
         else
           @logger.info("S3からダウンロードします: #{file[:bucket]}/#{file[:key]}")
           Utils.download_s3_object(
             @s3_client,
             file[:bucket],
-            file[:key]
+            file[:key],
+            logger: @logger # ロガーオブジェクトを渡す
           )
         end
       end
