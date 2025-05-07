@@ -1,4 +1,6 @@
 require 'thor'
+require 'base64'
+require 'securerandom'
 require_relative '../common/aws_client'
 require_relative '../common/logger'
 require_relative '../common/utils'
@@ -46,7 +48,16 @@ module LogTool
 
           # CSV出力
           ensure_output_dir(config['default']['output_dir'])
-          output_path = File.join(config['default']['output_dir'], options[:output])
+
+          # 出力ファイル名の決定
+          output_filename =
+            if options[:output] == 'alb_logs.csv' # デフォルト値のまま
+              generate_default_filename
+            else
+              options[:output]
+            end
+
+          output_path = File.join(config['default']['output_dir'], output_filename)
 
           parser = Parser.new(raw_logs, logger)
           parsed_count = parser.to_csv(output_path)
@@ -67,6 +78,18 @@ module LogTool
 
       def ensure_output_dir(dir)
         Common::Utils.ensure_output_dir(dir)
+      end
+
+      # デフォルトのファイル名を生成（Base64エンコードを使用）
+      def generate_default_filename
+        # ユニークな識別子として現在時刻のUTCタイムスタンプなどを使用
+        timestamp = Time.now.utc.strftime('%Y%m%d%H%M%S')
+        # ランダム要素を追加してより一意性を高める
+        random_suffix = SecureRandom.hex(4)
+        identifier = "#{timestamp}_#{random_suffix}"
+        # 識別子をBase64エンコード
+        encoded = Base64.urlsafe_encode64(identifier, padding: false)
+        "alb_#{encoded}.csv"
       end
     end
   end
