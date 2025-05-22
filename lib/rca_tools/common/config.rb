@@ -18,7 +18,8 @@ module RcaTools
           },
           'cf' => {
             'bucket' => ENV['CF_BUCKET'],
-            'prefix' => ENV['CF_PREFIX']
+            'prefix' => ENV['CF_PREFIX'],
+            'distribution_id' => ENV['CF_DISTRIBUTION_ID']
           },
           'waf' => {
             's3_bucket' => ENV['WAF_S3_BUCKET'],
