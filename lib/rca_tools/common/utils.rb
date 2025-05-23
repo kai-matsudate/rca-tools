@@ -5,69 +5,69 @@ require 'zlib'
 
 module RcaTools
   module Common
-    # ユーティリティメソッドを提供するクラス
+    # Utility class providing common methods
     #
-    # このクラスは、ログ処理に関連する共通のユーティリティ機能を提供します。
-    # 日付処理、S3操作、ファイル操作など、複数のモジュールで使用される
-    # 便利な機能が含まれています。
+    # This class provides common utility functions related to log processing.
+    # It includes useful features such as date handling, S3 operations,
+    # file operations, etc. used across multiple modules.
     class Utils
-      # 日付時刻関連のメソッド
+      # Date and time related methods
 
-      # S3オブジェクトを日付範囲でフィルタリングするためのプレフィックスリストを生成
-      # @param start_date [String, Date, DateTime] 開始日または日時
-      # @param end_date [String, Date, DateTime] 終了日または日時
-      # @param format [String] 日付フォーマット
-      # @return [Array] プレフィックスリスト、開始日時、終了日時の配列
+      # Generate prefix list for filtering S3 objects by date range
+      # @param start_date [String, Date, DateTime] Start date or datetime
+      # @param end_date [String, Date, DateTime] End date or datetime
+      # @param format [String] Date format
+      # @return [Array] Array containing prefix list, start datetime, and end datetime
       def self.date_prefixes(start_date, end_date, format = '%Y/%m/%d')
         start_datetime = parse_datetime(start_date)
         end_datetime = parse_datetime(end_date)
 
-        # 日付部分でのプレフィックス生成
+        # Generate prefixes for date portions
         date_range = (start_datetime.to_date..end_datetime.to_date).map do |date|
           date.strftime(format)
         end
 
-        # 返り値は [プレフィックスリスト, 開始日時, 終了日時] の形式
+        # Return value is in the format [prefix_list, start_datetime, end_datetime]
         [date_range, start_datetime, end_datetime]
       end
 
-      # 日付または日時文字列をパースするヘルパーメソッド
-      # @param datetime_str [String, Date, DateTime] パースする日付または日時
-      # @return [DateTime] パースされたDateTimeオブジェクト
+      # Helper method for parsing date or datetime strings
+      # @param datetime_str [String, Date, DateTime] Date or datetime to parse
+      # @return [DateTime] Parsed DateTime object
       def self.parse_datetime(datetime_str)
         if datetime_str.is_a?(String) && (datetime_str.include?('T') || datetime_str.include?(' '))
-          # ISO8601形式（YYYY-MM-DDThh:mm:ss）または YYYY-MM-DD hh:mm:ss 形式
-          # UTCとして扱う
+          # ISO8601 format (YYYY-MM-DDThh:mm:ss) or YYYY-MM-DD hh:mm:ss format
+          # Treated as UTC
           DateTime.parse(datetime_str).new_offset(0)
         elsif datetime_str.is_a?(String)
-          # YYYY-MM-DD 形式
-          # 日付のみの場合は、その日の始まり（00:00:00 UTC）として扱う
+          # YYYY-MM-DD format
+          # If date only, treat as the beginning of the day (00:00:00 UTC)
           date = Date.parse(datetime_str)
           DateTime.new(date.year, date.month, date.day, 0, 0, 0, 0)
         elsif datetime_str.is_a?(Date) && !datetime_str.is_a?(DateTime)
-          # DateオブジェクトをDateTimeに変換
+          # Convert Date object to DateTime
           DateTime.new(datetime_str.year, datetime_str.month, datetime_str.day, 0, 0, 0, 0)
         else
-          # すでにDateTimeオブジェクトかその他の場合はそのまま返す
+          # If already a DateTime object or other, return as is
           datetime_str
         end
       end
 
-      # 文字列に時刻情報が含まれているかをチェック
-      # @param datetime_str [String] チェックする日付または日時文字列
-      # @return [Boolean] 時刻情報が含まれている場合はtrue
+      # Check if a string contains time information
+      # @param datetime_str [String] Date or datetime string to check
+      # @return [Boolean] true if the string contains time information
       def self.has_time_component?(datetime_str)
         datetime_str.is_a?(String) && (datetime_str.include?('T') || datetime_str.include?(' '))
       end
 
-      # S3関連のメソッド
+      # S3 related methods
 
-      # S3オブジェクトリストを取得
-      # @param s3_client [Aws::S3::Client] S3クライアント
-      # @param bucket [String] バケット名
-      # @param prefix [String] プレフィックス
-      # @param date_prefixes [Array<String>] 日付プレフィックスの配列
-      # @return [Array<Aws::S3::Types::Object>] S3オブジェクトの配列
+      # Get S3 object list
+      # @param s3_client [Aws::S3::Client] S3 client
+      # @param bucket [String] Bucket name
+      # @param prefix [String] Prefix
+      # @param date_prefixes [Array<String>] Array of date prefixes
+      # @return [Array<Aws::S3::Types::Object>] Array of S3 objects
       def self.list_s3_objects(s3_client, bucket, prefix, date_prefixes = nil)
         if date_prefixes
           objects = []
@@ -83,46 +83,46 @@ module RcaTools
         end
       end
 
-      # S3オブジェクトをダウンロードして内容を返す
-      # @param s3_client [Aws::S3::Client] S3クライアント
-      # @param bucket [String] バケット名
-      # @param key [String] オブジェクトキー
-      # @param decompress [Boolean] gzipファイルを解凍するかどうか
-      # @param logger [Logger] ロガーオブジェクト
-      # @return [String] ダウンロードしたオブジェクトの内容
+      # Download S3 object and return its content
+      # @param s3_client [Aws::S3::Client] S3 client
+      # @param bucket [String] Bucket name
+      # @param key [String] Object key
+      # @param decompress [Boolean] Whether to decompress gzip files
+      # @param logger [Logger] Logger object
+      # @return [String] Content of the downloaded object
       def self.download_s3_object(s3_client, bucket, key, decompress: true, logger: nil)
         temp_file = Tempfile.new('s3_object')
         begin
-          # S3からオブジェクトをダウンロード
-          logger&.info("S3オブジェクトのダウンロード開始: #{bucket}/#{key}")
+          # Download object from S3
+          logger&.info("Starting download of S3 object: #{bucket}/#{key}")
           response = s3_client.get_object(
             bucket: bucket,
             key: key,
             response_target: temp_file.path
           )
 
-          # ファイルの内容を取得
+          # Get file content
           if decompress && key.end_with?('.gz')
-            # 外部コマンドを使用してgzipファイルを解凍
+            # Use external command to decompress gzip file
             content = decompress_with_external_command(temp_file.path, logger)
 
             if content.nil? || content.empty?
-              # 最後の手段としてRubyのZlib解凍を試みる
-              logger&.info("代替手段としてRubyのZlib解凍を試みます")
+              # Try Ruby's Zlib decompression as a last resort
+              logger&.info("Trying Ruby's Zlib decompression as an alternative")
               begin
                 content = ''
                 Zlib::GzipReader.open(temp_file.path) do |gz|
                   content = gz.read
                 end
               rescue => e
-                logger&.error("Zlib解凍エラー: #{e.message}")
+                logger&.error("Zlib decompression error: #{e.message}")
                 content = nil
               end
             end
 
             content
           else
-            # 非圧縮ファイルの読み込み
+            # Read non-compressed file
             File.read(temp_file.path)
           end
         ensure
@@ -131,39 +131,39 @@ module RcaTools
         end
       end
 
-      # 外部コマンドを使用してGZIPファイルを解凍
-      # @param gz_file_path [String] GZIPファイルのパス
-      # @param logger [Logger] ロガーオブジェクト
-      # @return [String, nil] 解凍したコンテンツ、または失敗した場合はnil
+      # Decompress GZIP file using external command
+      # @param gz_file_path [String] Path to GZIP file
+      # @param logger [Logger] Logger object
+      # @return [String, nil] Decompressed content, or nil if failed
       def self.decompress_with_external_command(gz_file_path, logger)
         begin
           output_path = gz_file_path + '.decoded'
 
-          # まずgunzipコマンドを試す
+          # First try the gunzip command
           command = "gunzip -c '#{gz_file_path}' > '#{output_path}'"
           result = system(command)
 
           if result && File.exist?(output_path) && File.size(output_path) > 0
-            # 成功した場合はファイルを読み込む
+            # If successful, read the file
             content = File.read(output_path)
           else
-            # gunzipが失敗した場合は、macOSのditto -k コマンドを試す (macOSのみ)
+            # If gunzip fails, try ditto -k command (macOS only)
             ditto_temp_dir = File.join(Dir.pwd, 'output', 'ditto_temp')
             FileUtils.mkdir_p(ditto_temp_dir)
 
-            # dittoコマンドは解凍先にディレクトリが必要
+            # ditto command requires a directory for extraction
             ditto_command = "ditto -k --sequesterRsrc '#{gz_file_path}' '#{ditto_temp_dir}'"
             ditto_result = system(ditto_command)
 
             if ditto_result
-              # 解凍されたファイルを探す (拡張子なしのファイル名になる)
+              # Look for extracted file (will have filename without extension)
               base_name = File.basename(gz_file_path, '.gz')
               extracted_file = File.join(ditto_temp_dir, base_name)
 
               if File.exist?(extracted_file)
                 content = File.read(extracted_file)
 
-                # 結果を同じ出力パスにコピー
+                # Copy result to the same output path
                 File.write(output_path, content)
               else
                 return nil
@@ -173,34 +173,34 @@ module RcaTools
             end
           end
 
-          # 解凍結果を返す前に一時ファイルの削除
+          # Clean up temporary files before returning decompression result
           begin
             File.unlink(output_path) if File.exist?(output_path)
             FileUtils.rm_rf(File.join(Dir.pwd, 'output', 'ditto_temp')) if Dir.exist?(File.join(Dir.pwd, 'output', 'ditto_temp'))
           rescue => e
-            # 一時ファイル削除中のエラーは無視
+            # Ignore errors during temporary file cleanup
           end
 
           content
         rescue => e
-          logger&.error("外部コマンドでの解凍エラー: #{e.message}")
+          logger&.error("Error decompressing with external command: #{e.message}")
           nil
         end
       end
 
-      # ファイル操作関連のメソッド
+      # File operation related methods
 
-      # ローカルファイルからコンテンツを読み込む
-      # @param file_path [String] ファイルパス
-      # @param decompress [Boolean] gzipファイルを解凍するかどうか
-      # @param logger [Logger] ロガーオブジェクト (オプション)
-      # @return [String] ファイルの内容
+      # Read content from local file
+      # @param file_path [String] File path
+      # @param decompress [Boolean] Whether to decompress gzip files
+      # @param logger [Logger] Logger object (optional)
+      # @return [String] File content
       def self.read_local_file(file_path, decompress: true, logger: nil)
         if decompress && file_path.end_with?('.gz')
-          # 外部コマンドでの解凍を優先
+          # Prioritize external command for decompression
           content = decompress_with_external_command(file_path, logger)
 
-          # 外部コマンドが失敗した場合のみ、Zlibを試用
+          # Only try Zlib if external command fails
           if content.nil? || content.empty?
             begin
               content = ''
@@ -208,20 +208,20 @@ module RcaTools
                 content = gz.read
               end
             rescue => e
-              logger&.error("Zlib解凍エラー: #{e.message}")
+              logger&.error("Zlib decompression error: #{e.message}")
               raise
             end
           end
 
           content
         else
-          # 非圧縮ファイルの読み込み
+          # Read non-compressed file
           File.read(file_path)
         end
       end
 
-      # 出力ディレクトリが存在することを確認
-      # @param dir_path [String] ディレクトリパス
+      # Ensure output directory exists
+      # @param dir_path [String] Directory path
       def self.ensure_output_dir(dir_path)
         FileUtils.mkdir_p(dir_path) unless Dir.exist?(dir_path)
       end

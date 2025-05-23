@@ -4,8 +4,8 @@ require 'fileutils'
 module RcaTools
   module Cf
     class Parser
-      # CloudFrontログのヘッダー定義
-      # 参考: https://docs.aws.amazon.com/ja_jp/AmazonCloudFront/latest/DeveloperGuide/AccessLogs.html#BasicDistributionFileFormat
+      # CloudFront log header definition
+      # Reference: https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/AccessLogs.html#BasicDistributionFileFormat
       HEADERS = [
         'date',
         'time',
@@ -47,7 +47,7 @@ module RcaTools
         @logger = logger
       end
 
-      # ログをCSVに変換
+      # Convert logs to CSV
       def to_csv(output_path)
         ensure_output_dir(File.dirname(output_path))
 
@@ -59,23 +59,23 @@ module RcaTools
             line = line.strip
             next if line.empty?
 
-            # CloudFrontログの先頭行はコメント
+            # Skip comment lines at the beginning of CloudFront logs
             next if line.start_with?('#')
 
             begin
-              # CloudFrontログはタブ区切り
+              # CloudFront logs are tab-delimited
               fields = line.split("\t")
               csv << fields
               parsed_count += 1
             rescue => e
-              @logger.warn("ログ行の解析に失敗しました: #{e.message}")
-              @logger.debug("問題のある行: #{line}")
+              @logger.warn("Failed to parse log line: #{e.message}")
+              @logger.debug("Problematic line: #{line}")
               error_count += 1
             end
           end
         end
 
-        @logger.info("処理完了: 成功=#{parsed_count}, 失敗=#{error_count}")
+        @logger.info("Processing complete: success=#{parsed_count}, failed=#{error_count}")
         parsed_count
       end
 

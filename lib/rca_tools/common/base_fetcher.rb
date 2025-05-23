@@ -3,8 +3,8 @@ require_relative 'utils'
 
 module RcaTools
   module Common
-    # ログフェッチャーの基本クラス
-    # 各サービス固有のフェッチャーはこのクラスを継承する
+    # Base class for log fetchers
+    # Service-specific fetchers inherit from this class
     class BaseFetcher
       attr_reader :s3_client, :config, :options, :logger, :service_config
 
@@ -16,39 +16,39 @@ module RcaTools
         setup_config
       end
 
-      # サブクラスで実装する設定メソッド
+      # Configuration method to be implemented by subclasses
       def setup_config
         raise NotImplementedError, "#{self.class} must implement #setup_config"
       end
 
-      # ファイルリストの取得
+      # Get list of files
       def list_files
         if single_file_mode?
           handle_single_file
         elsif date_range_mode?
           handle_date_range
         else
-          @logger.error("ファイルまたは期間が指定されていません")
+          @logger.error("No file or date range specified")
           []
         end
       end
 
-      # 単一ファイルが指定されているかどうか
+      # Check if a single file is specified
       def single_file_mode?
         @options[:file]
       end
 
-      # 日付/日時範囲が指定されているかどうか
+      # Check if a date/time range is specified
       def date_range_mode?
         @options[:start] && @options[:end]
       end
 
-      # 単一ファイルの処理
+      # Process a single file
       def handle_single_file
         file_uri = URI.parse(@options[:file])
         if file_uri.scheme == 's3'
-          @logger.info("S3から単一ファイルを取得します: #{@options[:file]}")
-          # s3://bucket/path/to/file.gz の形式から bucket と key を抽出
+          @logger.info("Retrieving single file from S3: #{@options[:file]}")
+          # Extract bucket and key from s3://bucket/path/to/file.gz format
           bucket = file_uri.host
           key = file_uri.path.sub(/^\//, '')
           [{
@@ -57,8 +57,8 @@ module RcaTools
             local: false
           }]
         else
-          @logger.info("ローカルファイルを処理します: #{@options[:file]}")
-          # ローカルファイル
+          @logger.info("Processing local file: #{@options[:file]}")
+          # Local file
           [{
             path: @options[:file],
             local: true
@@ -66,39 +66,39 @@ module RcaTools
         end
       end
 
-      # 日付/日時範囲の処理
+      # Process date/time range
       def handle_date_range
-        @logger.info("期間指定でログを取得します: #{@options[:start]} から #{@options[:end]}")
+        @logger.info("Retrieving logs for date range: #{@options[:start]} to #{@options[:end]}")
 
-        # 日付プレフィックスと日時情報を取得
+        # Get date prefixes and datetime information
         date_prefixes, start_datetime, end_datetime = Utils.date_prefixes(@options[:start], @options[:end])
 
-        # 時刻情報が含まれているかチェック
+        # Check if time component is included
         has_time = Utils.has_time_component?(@options[:start]) || Utils.has_time_component?(@options[:end])
 
-        # オブジェクトリスト取得 (サブクラスで実装)
+        # Get object list (implemented by subclasses)
         objects = list_objects_for_date_range(date_prefixes)
 
-        # 時刻情報が含まれている場合、時刻でフィルタリング
+        # Filter by time if time component is specified
         if has_time
-          @logger.info("日時範囲でフィルタリングします: #{start_datetime} から #{end_datetime}")
+          @logger.info("Filtering by datetime range: #{start_datetime} to #{end_datetime}")
           objects = filter_objects_by_time(objects, start_datetime, end_datetime)
         end
 
         format_object_list(objects)
       end
 
-      # 日付範囲に対応するオブジェクトリストを取得する (サブクラスで実装)
+      # Get object list for date range (to be implemented by subclasses)
       def list_objects_for_date_range(date_prefixes)
         raise NotImplementedError, "#{self.class} must implement #list_objects_for_date_range"
       end
 
-      # S3オブジェクトを時刻でフィルタリング (サブクラスで実装)
+      # Filter S3 objects by time (to be implemented by subclasses)
       def filter_objects_by_time(objects, start_datetime, end_datetime)
         raise NotImplementedError, "#{self.class} must implement #filter_objects_by_time"
       end
 
-      # オブジェクトリストを標準形式に変換 (サブクラスでオーバーライド可能)
+      # Convert object list to standard format (can be overridden by subclasses)
       def format_object_list(objects)
         objects.map do |obj|
           {
@@ -109,13 +109,13 @@ module RcaTools
         end
       end
 
-      # ファイルのダウンロードとコンテンツ取得
+      # Download files and get content
       def download(files)
-        @logger.info("#{files.size}件のログファイルをダウンロードします")
+        @logger.info("Downloading #{files.size} log files")
         collect_contents(files)
       end
 
-      # ファイルからコンテンツを収集
+      # Collect content from files
       def collect_contents(files)
         contents = []
         files.each do |file|
@@ -130,25 +130,25 @@ module RcaTools
         contents.join("\n")
       end
 
-      # ファイルをダウンロード
+      # Download file
       def download_file(file)
         if file[:local]
-          @logger.info("ローカルファイルを読み込みます: #{file[:path]}")
+          @logger.info("Reading local file: #{file[:path]}")
           Utils.read_local_file(file[:path], logger: @logger)
         else
-          @logger.info("S3からダウンロードします: #{file[:bucket]}/#{file[:key]}")
+          @logger.info("Downloading from S3: #{file[:bucket]}/#{file[:key]}")
           Utils.download_s3_object(
             @s3_client,
             file[:bucket],
             file[:key],
-            logger: @logger # ロガーオブジェクトを渡す
+            logger: @logger # Pass logger object
           )
         end
       end
 
-      # ダウンロードエラーの処理
+      # Handle download error
       def handle_download_error(file, error)
-        @logger.error("ファイル取得に失敗しました: #{error.message}")
+        @logger.error("Failed to retrieve file: #{error.message}")
         @logger.debug(error.backtrace.join("\n"))
       end
     end
